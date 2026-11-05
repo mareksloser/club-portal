@@ -1,5 +1,4 @@
 node_modules/
-.idea
 
 frontend/dist/
 frontend/dist-demo/
@@ -9,5 +8,4 @@ backend/.env
 backend/vendor/
 backend/public/assets/
 backend/public/index.html
-backend/public/favicon.svg
 backend/tmp/

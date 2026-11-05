@@ -44,7 +44,7 @@ final class Kernel
         return $response->withHeaders([
             'Access-Control-Allow-Origin' => $origin,
             'Access-Control-Allow-Headers' => 'Authorization, Content-Type',
-            'Access-Control-Allow-Methods' => 'GET, OPTIONS',
+            'Access-Control-Allow-Methods' => 'GET, POST, PUT, DELETE, OPTIONS',
             'Vary' => 'Origin',
         ]);
     }

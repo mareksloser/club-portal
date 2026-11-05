@@ -17,11 +17,12 @@ final class DashboardController
     ) {
     }
 
+    /** Anonymous visitors get the public links; signed-in members what their rules allow. */
     public function show(Request $request): Response
     {
-        $member = $this->auth->requireMember($request);
+        $member = $this->auth->member($request);
 
-        return Response::json($this->dashboard->forMember($member, (string) $request->bearerToken()))
+        return Response::json($this->dashboard->forVisitor($member, $this->auth->isEditor($member)))
             ->withHeaders(['Cache-Control' => 'private, no-store']);
     }
 }

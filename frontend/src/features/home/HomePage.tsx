@@ -1,118 +1,132 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from '@tanstack/react-router';
-import { RotateCw } from 'lucide-react';
-import { useDashboard } from '@/app/queries';
-import { Button, ErrorNote, Panel, Spinner } from '@/components/ui';
-import { greeting, teamLine } from '@/lib/labels';
-import type { Dashboard, PortalApp } from '@/lib/types';
-import { splitApps } from '@/lib/apps';
-import { AppTile } from './AppTile';
+import { Check, Pencil, Plus, RotateCw } from 'lucide-react';
+import { useConfig, useDashboard, useDirectory, useEdit } from '@/app/queries';
+import { Button, ErrorNote, Spinner } from '@/components/ui';
+import { isDemo } from '@/api';
+import { greeting, longDate } from '@/lib/date';
+import { moveId } from '@/lib/links';
+import type { Dashboard } from '@/lib/types';
+import { LinkDialog, type LinkTarget } from '@/features/edit/LinkDialog';
+import { SectionDialog, type SectionTarget } from '@/features/edit/SectionDialog';
+import { AccountMenu } from './AccountMenu';
+import { SectionBlock } from './SectionBlock';
+import { Weather } from './Weather';
 
 export function HomePage() {
+  const config = useConfig();
   const dashboard = useDashboard();
-  const navigate = useNavigate();
-  const { href } = useLocation();
-
-  // The portal has nothing to show anonymously: go straight to the club login.
-  useEffect(() => {
-    if (dashboard.data === null) void navigate({ to: '/login', search: href === '/' ? {} : { redirect: href }, replace: true });
-  }, [dashboard.data, navigate, href]);
-
-  if (dashboard.isPending || dashboard.data === null) {
-    return (
-      <div className="mt-16 flex justify-center">
-        <Spinner />
-      </div>
-    );
-  }
-
-  if (dashboard.error) {
-    return (
-      <Panel className="mx-auto grid max-w-md gap-4 p-5">
-        <ErrorNote error={dashboard.error} />
-        <Button variant="primary" disabled={dashboard.isFetching} onClick={() => void dashboard.refetch()}>
-          <RotateCw className="h-4 w-4" /> Načíst znovu
-        </Button>
-      </Panel>
-    );
-  }
-
-  return <Home data={dashboard.data} />;
-}
-
-function Home({ data }: { data: Dashboard }) {
-  const { member, apps, links } = data;
-  const { own, adminOnly } = splitApps(apps);
   const [now] = useState(() => new Date());
+  const [editing, setEditing] = useState(false);
+  const isEditor = dashboard.data?.editor ?? false;
+  const editMode = editing && isEditor;
+  const clubName = config.data?.clubName;
+
+  useEffect(() => {
+    if (clubName) document.title = clubName;
+  }, [clubName]);
 
   return (
-    <>
-      <section aria-labelledby="who">
-        <p className="text-lg text-muted">{greeting(now)},</p>
-        <h1 id="who" className="font-display text-5xl font-semibold leading-[0.95] tracking-tight md:text-6xl">
-          {member.name}
-        </h1>
-        {member.teams.length > 0 && (
-          <ul className="mt-5 flex flex-wrap gap-x-8 gap-y-2" aria-label="Vaše týmy">
-            {member.teams.map((team) => {
-              const { name, membership } = teamLine(team);
-              return (
-                <li key={team.slug} className="leading-tight">
-                  <span className="block font-medium">{name}</span>
-                  <span className="block text-sm text-muted">{membership}</span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+    <div className="mx-auto max-w-6xl px-5 pb-20 pt-5 md:px-8">
+      {isDemo && <p className="mb-4 rounded-md bg-raised px-3 py-1.5 text-center text-xs text-muted">Ukázka: data jsou jen v prohlížeči a odkazy nikam nevedou.</p>}
 
-      <section aria-labelledby="apps" className="mt-12">
-        <h2 id="apps" className="font-display text-2xl font-semibold">
-          Vaše aplikace
-        </h2>
-        {own.length === 0 ? (
-          <Panel className="mt-4 max-w-xl p-5">
-            <p className="font-medium">Zatím nemáte přístup k žádné aplikaci.</p>
-            <p className="mt-1 text-muted">
-              Přístup přiděluje trenér nebo správce klubových účtů. Napište mu, kterou aplikaci potřebujete, a po přidělení
-              se tady objeví sama.
-            </p>
-          </Panel>
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="text-sm font-semibold uppercase tracking-wide">{longDate(now)}</p>
+        <div className="ml-auto flex items-center gap-1">
+          {isEditor && (
+            <Button variant={editMode ? 'primary' : 'ghost'} size="sm" onClick={() => setEditing(!editMode)} aria-pressed={editMode}>
+              {editMode ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+              {editMode ? 'Hotovo' : 'Upravit'}
+            </Button>
+          )}
+          <AccountMenu member={dashboard.data?.member ?? null} accountUrl={config.data?.issuer ? `${config.data.issuer}/` : null} />
+        </div>
+      </header>
+
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-6 md:mt-10">
+        <h1 className="text-5xl font-extrabold leading-none tracking-tight md:text-7xl">{greeting(now)}!</h1>
+        <Weather place={config.data?.weather} />
+      </div>
+
+      <div className="mt-12 md:mt-14">
+        {dashboard.isPending ? (
+          <Spinner />
+        ) : dashboard.error ? (
+          <div className="grid max-w-md gap-3">
+            <ErrorNote error={dashboard.error} />
+            <Button className="justify-self-start" onClick={() => void dashboard.refetch()} disabled={dashboard.isFetching}>
+              <RotateCw className="h-4 w-4" /> Načíst znovu
+            </Button>
+          </div>
         ) : (
-          <AppGrid apps={own} />
+          <Sections data={dashboard.data} editMode={editMode} />
         )}
-      </section>
-
-      {adminOnly.length > 0 && (
-        <section aria-labelledby="admin-apps" className="mt-12">
-          <h2 id="admin-apps" className="font-display text-2xl font-semibold">
-            Ostatní aplikace klubu
-          </h2>
-          <p className="mt-1 max-w-xl text-muted">Nemáte v nich žádnou roli, vidíte je jen jako správce účtů.</p>
-          <AppGrid apps={adminOnly} />
-        </section>
-      )}
-
-      <p className="mt-12 max-w-xl text-sm text-muted">
-        Heslo, dvoufázové ověření a přihlášená zařízení najdete v{' '}
-        <a href={links.account} className="font-medium text-ink underline decoration-line underline-offset-4 hover:decoration-pitch">
-          klubovém účtu
-        </a>
-        .{own.length > 0 && ' Chybí vám tu aplikace? O přístup požádejte trenéra nebo správce účtů.'}
-      </p>
-    </>
+      </div>
+    </div>
   );
 }
 
-function AppGrid({ apps }: { apps: PortalApp[] }) {
+function Sections({ data, editMode }: { data: Dashboard; editMode: boolean }) {
+  const directory = useDirectory(editMode);
+  const [linkTarget, setLinkTarget] = useState<LinkTarget | null>(null);
+  const [sectionTarget, setSectionTarget] = useState<SectionTarget | null>(null);
+  const reorderSections = useEdit((api, ids: number[]) => api.reorderSections(ids));
+  const reorderLinks = useEdit((api, { sectionId, ids }: { sectionId: number; ids: number[] }) => api.reorderLinks(sectionId, ids));
+  const failure = reorderSections.error ?? reorderLinks.error;
+
+  if (data.sections.length === 0 && !editMode) {
+    return (
+      <p className="max-w-lg text-lg text-muted">
+        {data.member ? 'Zatím tu pro vás nic není. O přístup požádejte trenéra nebo správce klubu.' : 'Po přihlášení klubovým účtem tu najdete odkazy pro svůj tým.'}
+      </p>
+    );
+  }
+
   return (
-    <ul className="mt-4 grid gap-4 md:grid-cols-2">
-      {apps.map((app) => (
-        <li key={app.clientId} className="grid">
-          <AppTile app={app} />
-        </li>
-      ))}
-    </ul>
+    <>
+      {failure && (
+        <div className="mb-6 max-w-md">
+          <ErrorNote error={failure} />
+        </div>
+      )}
+      {data.sections.map((section, index) => {
+        const up = moveId(data.sections, section.id, -1);
+        const down = moveId(data.sections, section.id, 1);
+        return (
+          <SectionBlock
+            key={section.id}
+            section={section}
+            editing={
+              editMode
+                ? {
+                    directory: directory.data,
+                    canMoveUp: index > 0,
+                    canMoveDown: index < data.sections.length - 1,
+                    onMoveSection: (delta) => {
+                      const ids = delta < 0 ? up : down;
+                      if (ids) reorderSections.mutate(ids);
+                    },
+                    onEditSection: () => setSectionTarget({ section }),
+                    onAddLink: (column) => setLinkTarget({ sectionId: section.id, column }),
+                    onEditLink: (link) => setLinkTarget({ link }),
+                    onReorderLinks: (ids) => reorderLinks.mutate({ sectionId: section.id, ids }),
+                  }
+                : null
+            }
+          />
+        );
+      })}
+
+      {editMode && (
+        <div className="mt-14 flex flex-wrap items-center gap-4">
+          <Button onClick={() => setSectionTarget({ create: true })}>
+            <Plus className="h-4 w-4" /> Nová sekce
+          </Button>
+          {directory.error && <p className="text-sm text-muted">Týmy a role se nepodařilo načíst z klubového účtu, u pravidel je zadávej ručně.</p>}
+        </div>
+      )}
+
+      <LinkDialog target={linkTarget} sections={data.sections} directory={directory.data} onClose={() => setLinkTarget(null)} />
+      <SectionDialog target={sectionTarget} onClose={() => setSectionTarget(null)} />
+    </>
   );
 }

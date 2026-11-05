@@ -23,7 +23,10 @@ export function createApiClient(): ApiClient {
 
 async function fetchConfig(base: string): Promise<ServerConfig> {
   const res = await fetch(`${base}/auth/config`, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`Nepodařilo se načíst nastavení přihlášení (HTTP ${res.status}).`);
+  if (!res.ok) throw new Error(`Nepodařilo se načíst nastavení (HTTP ${res.status}).`);
+  if (!(res.headers.get('content-type') ?? '').includes('json')) {
+    throw new Error(`Server na ${base}/auth/config nevrací API, ale HTML. Zkontroluj přesměrování v .htaccess.`);
+  }
   return (await res.json()) as ServerConfig;
 }
 

@@ -5,51 +5,61 @@ declare(strict_types=1);
 namespace Portal\Service;
 
 use Portal\Auth\Member;
-use Portal\Catalog\AppCatalog;
-use Portal\Catalog\AppTile;
-use Portal\Catalog\CatalogException;
-use Portal\Http\HttpException;
+use Portal\Domain\Link;
+use Portal\Domain\Section;
+use Portal\Repository\LinkRepository;
+use Portal\Repository\SectionRepository;
 
-/** Everything the portal's home screen shows for one member. */
+/** What the home screen shows to one visitor. */
 final class DashboardService
 {
     public function __construct(
-        private readonly AppCatalog $catalog,
-        private readonly string $issuer,
+        private readonly SectionRepository $sections,
+        private readonly LinkRepository $links,
     ) {
     }
 
-    /** @return array{member: array<string, mixed>, apps: list<array<string, mixed>>, links: array{account: string, admin: ?string}} */
-    public function forMember(Member $member, string $accessToken): array
+    /** @return array<string, mixed> */
+    public function forVisitor(?Member $member, bool $isEditor): array
     {
-        try {
-            $apps = $this->catalog->appsFor($accessToken);
-        } catch (CatalogException $e) {
-            if ($e->isTokenRejected()) {
-                throw HttpException::unauthorized('Přihlášení vypršelo, přihlaste se prosím znovu.');
-            }
-            error_log('[portal] app catalogue unavailable: ' . $e->getMessage());
-            throw new HttpException('Seznam aplikací se teď nepodařilo načíst. Zkuste to za chvíli znovu.', 502);
-        }
-
-        return self::compose($member, $apps, rtrim($this->issuer, '/'));
+        return self::compose($this->sections->all(), $this->links->all(), $member, $isEditor);
     }
 
     /**
-     * Pure: the response body.
+     * Pure: visitors get only the links their access rules allow and no empty sections.
+     * Editors get everything, including each link's rule and whether they'd see it as a regular member.
      *
-     * @param list<AppTile> $apps
-     * @return array{member: array<string, mixed>, apps: list<array<string, mixed>>, links: array{account: string, admin: ?string}}
+     * @param list<Section> $sections
+     * @param list<Link>    $links
+     * @return array<string, mixed>
      */
-    public static function compose(Member $member, array $apps, string $issuer): array
+    public static function compose(array $sections, array $links, ?Member $member, bool $isEditor): array
     {
+        $bySection = [];
+        foreach ($links as $link) {
+            if (!$link->access->allows($member, $isEditor)) {
+                continue;
+            }
+            $row = $link->toArray($isEditor);
+            if ($isEditor) {
+                $row['visibleToMe'] = $link->access->allows($member, false);
+            }
+            $bySection[$link->sectionId][] = $row;
+        }
+
+        $out = [];
+        foreach ($sections as $section) {
+            $rows = $bySection[$section->id] ?? [];
+            if ($rows === [] && !$isEditor) {
+                continue;
+            }
+            $out[] = $section->toArray() + ['links' => $rows];
+        }
+
         return [
-            'member' => $member->toArray(),
-            'apps' => array_map(static fn (AppTile $app): array => $app->toArray(), $apps),
-            'links' => [
-                'account' => $issuer . '/',
-                'admin' => $member->isSuperadmin() ? $issuer . '/admin' : null,
-            ],
+            'member' => $member?->toArray(),
+            'editor' => $isEditor,
+            'sections' => $out,
         ];
     }
 }

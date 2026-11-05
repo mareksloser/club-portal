@@ -1,5 +1,4 @@
-import { createBrowserHistory, createMemoryHistory, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
-import { Layout } from './Layout';
+import { createBrowserHistory, createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { NotFoundPage } from './NotFoundPage';
 import { HomePage } from '@/features/home/HomePage';
 import { LoginPage } from '@/features/auth/LoginPage';
@@ -7,7 +6,7 @@ import { AuthCallbackPage } from '@/features/auth/AuthCallbackPage';
 import { isDemo } from '@/api';
 import { safeRedirect } from '@/lib/redirect';
 
-const root = createRootRoute({ component: Layout, notFoundComponent: NotFoundPage });
+const root = createRootRoute({ component: Outlet, notFoundComponent: NotFoundPage });
 
 /** ?redirect=/… brings the user back after login. Only same-site paths (no open redirect). */
 const loginSearch = (s: Record<string, unknown>): { redirect?: string } => {

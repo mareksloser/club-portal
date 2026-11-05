@@ -2,40 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * One dark theme, after the classic self-hosted start pages: deep navy, white type,
+ * the club red (lightened for contrast on navy) for secondary text and accents.
+ * Change --accent to re-colour the whole portal.
+ */
 :root {
-  --bg: 240 243 247;
-  --panel: 255 255 255;
-  --raised: 233 238 244;
-  --line: 214 221 230;
-  --ink: 16 24 36;
-  --muted: 88 101 120;
-  --pitch: 18 140 84;
-  --pitch-ink: 255 255 255;
-  --chalk: 11 17 27;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --bg: 12 18 29;
-    --panel: 19 27 40;
-    --raised: 27 37 53;
-    --line: 39 51 70;
-    --ink: 229 235 242;
-    --muted: 139 151 169;
-    --pitch: 31 191 117;
-    --pitch-ink: 5 28 16;
-    color-scheme: dark;
-  }
-}
-:root[data-theme='dark'] {
-  --bg: 12 18 29;
-  --panel: 19 27 40;
-  --raised: 27 37 53;
-  --line: 39 51 70;
-  --ink: 229 235 242;
-  --muted: 139 151 169;
-  --pitch: 31 191 117;
-  --pitch-ink: 5 28 16;
+  --bg: 10 25 49;          /* #0a1931 */
+  --panel: 17 37 69;       /* dialogs */
+  --raised: 26 50 89;      /* inputs, hover */
+  --line: 39 66 110;
+  --ink: 238 243 250;
+  --muted: 142 163 196;
+  --accent: 255 92 112;    /* club red #d3012a, lightened: 5.6:1 on --bg */
+  --accent-ink: 10 25 49;
+  --danger: 255 120 120;
   color-scheme: dark;
 }
 

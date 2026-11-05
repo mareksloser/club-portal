@@ -1,77 +1,99 @@
 # Club portal (rozcestník)
 
-The club's launchpad for SK Baník Libušín: sign in once with the club account and see a tile for every
-application you can use (Match Video Review, pitch booking, …), your teams, and links to your account.
+The start page of SK Baník Libušín: date, greeting, weather, and the club's links in sections – app tiles and
+bookmark columns. Editors manage everything right on the page (*Upravit*); each link carries one rule saying
+who may see it. Visitors without an account see the public links, members sign in with the club account.
 
 ```
-frontend/   React 18 + TypeScript, TanStack Router/Query, Tailwind (same stack and look as MVR)
-backend/    PHP 8.2+, no framework (PSR-4), no database
+frontend/   React 18 + TypeScript, TanStack Router/Query, Tailwind, Radix
+backend/    PHP 8.2+, no framework (PSR-4), PDO + MySQL 8 / MariaDB
 ```
 
-## How permissions work
+## Who sees what
 
-The portal has **no permissions of its own**. Who may open what lives only in the club IdP
-([team-auth](https://github.com/mareksloser/team-auth)):
+Every link has one rule, set in its edit dialog (*Kdo odkaz uvidí*):
 
-- an application is listed when the user has **any of its roles** (the same roles that go into its tokens),
-- or when it is marked *visible to every signed-in user* (e.g. a public gallery),
-- a `superadmin` additionally sees every other application, in a separate "Ostatní aplikace klubu" section.
+| Rule | Visible to |
+|---|---|
+| Všichni | everyone, also without signing in |
+| Přihlášení členové | anyone signed in with a club account |
+| Tým | members of a team (or of any team), optionally only coaches / players / parents / staff |
+| Role | holders of a portal role in the club account (e.g. `vybor`), optionally only for one team |
+| Jen správci | the portal's editors |
 
-Which applications appear, their URL, description and order are set in the IdP admin
-(*Aplikace → detail → Rozcestník*); logo and colour come from *Vzhled přihlášení*.
-The portal reads the list from `GET {issuer}/api/apps` with the user's own access token (scope `apps`).
-
-```
-browser ──PKCE──▶ team-auth            (sign-in, tokens with scope `apps`)
-browser ──Bearer─▶ portal /api/dashboard
-                   └─ verifies the token (RS256, iss, aud = portal-web, exp)
-                   └─ GET team-auth /api/apps with the same token ──▶ tiles
-```
+Teams, memberships and roles are read from the access token (`teams`, `roles` claims), so the portal keeps
+no copy of them. A member who is in no matching team or role simply doesn't get the link from the API.
+Editors (the portal role `admin`, configurable via `EDITOR_ROLE`, or the global `superadmin`) see and manage
+everything; in edit mode each link shows its rule, and an eye icon marks links they'd not see otherwise.
+Sections without any visible link are hidden.
 
 ## Quick start (local)
 
 ```bash
-# 1) backend
+# 1) database
+mysql -uroot -e "CREATE DATABASE portal CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+mysql -uroot portal < backend/database/schema.sql
+mysql -uroot portal < backend/database/seed.sql      # optional starting content
+
+# 2) backend
 cd backend
-cp .env.example .env            # OIDC_ISSUER, OIDC_CLIENT_ID=portal-web, CLUB_NAME
+cp .env.example .env            # DB_*, OIDC_ISSUER, OIDC_CLIENT_ID=portal-web, CLUB_NAME, WEATHER_*
 php -S localhost:8081 -t public
 
-# 2) frontend (second terminal) — Vite proxies /api to :8081
+# 3) frontend (second terminal) — Vite proxies /api to :8081
 cd frontend
 pnpm install
 pnpm dev
 ```
 
-Demo without a backend and IdP: `pnpm dev:demo` (sample apps and teams, in the browser only).
+Demo without a backend and IdP: `pnpm dev:demo` (you are an editor, data lives in the browser).
 `pnpm build:demo` produces a single file `dist-demo/index.html`.
 
 ## Setup in the IdP (team-auth)
 
-Requires team-auth with the application catalogue (`GET /api/apps`, scope `apps`).
-
 1. *Aplikace → Nová aplikace*: client_id `portal-web`, **public** client, grants Authorization Code + Refresh Token,
-   scopes `openid profile email roles teams apps offline_access`, redirect URIs
+   scopes `openid profile email roles teams offline_access`, redirect URIs
    `https://<portal-host>/auth/callback` and `http://localhost:5173/auth/callback` for development.
-   The portal needs no roles: every club account may use it.
-2. For each application that should appear: *Aplikace → detail → Rozcestník* – tick *Zobrazit v rozcestníku*,
-   set the URL (its `/login` when the app redirects straight to the club login, like MVR) and a short description.
+2. Roles of `portal-web`: `admin` (edits the portal) plus any roles you want to use in link rules
+   (e.g. `vybor` – výbor klubu). Grant them to users, optionally limited to a team.
 3. Add the portal origin to the IdP's `CORS_ALLOW_ORIGIN`.
+4. For team and role pick-lists in the editor, team-auth needs `GET /api/directory` (included in team-auth
+   since the "Directory API" change). Without it the editor still works, slugs are typed by hand.
 
 ## Deployment
 
 1. `cd frontend && pnpm build` and copy the contents of `frontend/dist/` into `backend/public/`.
-2. Point the web root at `backend/public/`. An `.htaccess` is included for Apache
-   (rewrite to `index.php` and passing the `Authorization` header). For nginx:
-   `try_files $uri /index.php?$query_string;`
-3. PHP extensions: `mbstring`, `openssl`. PHP must reach the IdP over HTTPS (`allow_url_fopen`)
-   for its public keys and the app catalogue; keys are cached in `backend/tmp/cache/` (needs write access).
+2. Point the web root at `backend/public/`. The `.htaccess` (the same file comes with the frontend build,
+   so copying `dist/` over it is fine) sends `/api/*` to `index.php`, other unknown paths to `index.html`,
+   and passes the `Authorization` header. For nginx:
+   `location /api/ { try_files $uri /index.php?$query_string; }` and `location / { try_files $uri /index.html; }`.
+
+   Check: `https://<portal-host>/api/auth/config` must return JSON. If it returns the HTML page,
+   the rewrite sends `/api` to the SPA (an old `.htaccess`, or `AllowOverride` off).
+3. PHP extensions: `pdo_mysql`, `mbstring`, `openssl`. PHP must reach the IdP over HTTPS (`allow_url_fopen`)
+   for its public keys and the directory; keys are cached in `backend/tmp/cache/` (needs write access).
+4. Weather comes from [Open-Meteo](https://open-meteo.com) straight from the browser (no key);
+   set `WEATHER_LAT`/`WEATHER_LON`, or leave them empty to hide it.
 
 ## API
 
+All responses are JSON. Requests are authorized with the club IdP's access token (`Authorization: Bearer …`).
+
 | Method | Path | Who |
 |---|---|---|
-| GET | `/api/auth/config` | anyone (IdP issuer, client_id, club name) |
-| GET | `/api/dashboard` | signed in: `{member, apps, links}`; `401` without a valid token, `502` when the IdP catalogue is unreachable |
+| GET | `/api/auth/config` | anyone (IdP, club name, weather location) |
+| GET | `/api/dashboard` | anyone: `{member, editor, sections[{id, title, layout, links[]}]}` filtered by the rules |
+| GET | `/api/directory` | editor (teams and portal roles from the IdP) |
+| POST | `/api/sections` | editor `{title, layout: tiles \| columns}` |
+| PUT / DELETE | `/api/sections/{id}` | editor (deleting removes its links) |
+| PUT | `/api/sections/order` | editor `{ids: [...]}` – all section ids in the new order |
+| POST | `/api/links` | editor `{sectionId, column, title, subtitle, url, icon, newTab, access: {type, team, value}}` |
+| PUT / DELETE | `/api/links/{id}` | editor |
+| PUT | `/api/sections/{id}/links/order` | editor `{ids: [...]}` – all link ids of the section |
+
+Validation errors: `422 {"error": "...", "fields": {"field": "message"}}`. A reorder with a stale list of ids
+gets `409` (someone changed the page meanwhile). Icons are `lucide:<name>` from the curated set in
+`frontend/src/lib/icons.ts`, or `url:https://…` for an image (e.g. an app logo from dashboard-icons).
 
 ## Architecture and testability
 
@@ -79,26 +101,18 @@ There are no tests yet, but the code is prepared so they can be added without re
 (the same conventions as MVR).
 
 **Backend**
-- `Controller/` only reads the request and calls a service; `Service/DashboardService::compose()` is pure.
-- `Auth/Oidc/TokenVerifier` + `JwksProvider` (shared with MVR), `Auth/ClaimsMapper` (pure: claims → `Member`).
-- `Catalog/AppCatalog` is an interface; `HttpAppCatalog` takes an injectable HTTP call, so it's testable offline.
-  `Catalog/AppTile::fromArray()` is pure and drops entries with non-http(s) URLs (they end up in `href`/`src`).
-- All wiring is in `config/services.php` (`Container::set` can be overridden in a test). Time goes through `Support/Clock`.
-- Routes are full paths (`/api/...`), so they don't depend on how the web server mounts the app.
+- `Controller/` only reads the request and calls a service; logic lives in `Service/`.
+- `Domain/AccessRule` is the whole permission model: pure, `allows(?Member, isEditor)`.
+  `DashboardService::compose()` (filtering) and `EditorService::permutation()` (reorder check) are pure too;
+  `Domain/LinkData` and `Domain/Icon` validate input without I/O.
+- Repositories have interfaces (`Repository/*Repository.php`) and PDO implementations.
+- Sign-in: `Auth/Oidc/TokenVerifier` + `JwksProvider` (shared with MVR), `Auth/ClaimsMapper` (pure: claims → `Member`).
+  `Directory/HttpDirectory` takes an injectable HTTP call.
+- All wiring is in `config/services.php` (`Container::set` can be overridden in a test). Routes are full paths.
 
 **Frontend**
-- `src/api/` — the `ApiClient` interface, injected via React context: `HttpApiClient` (injectable `fetch`
-  and `AuthSession`) and `DemoApiClient` (in-memory).
-- `src/auth/session.ts` — `AuthSession` and its `oidc-client-ts` implementation (Authorization Code + PKCE,
-  refresh token renewal), the same as MVR plus the `apps` scope.
-- Pure functions: `src/lib/labels.ts` (role and team labels, greeting), `src/lib/apps.ts` (own vs. admin-only apps),
-  `src/lib/color.ts` (readable text on an app's accent, same rule as team-auth).
-
-## Roadmap
-
-1. **Widgets on the tiles** – each app may expose `GET /api/portal/summary` with a common shape
-   (`{items: [{label, value, url}]}`), e.g. MVR: unseen reviews; pitch booking: today's bookings for my teams.
-   The portal backend would collect them behind a `SummaryProvider` interface (one adapter per app, like video sources in MVR).
-   Needs a way to call the apps on the user's behalf (token exchange in team-auth, or a client-credentials call with `sub`).
-2. A "back to the portal" link in each app's user menu.
-3. Club announcements on the home screen.
+- `src/api/` — the `ApiClient` interface, injected via React context: `HttpApiClient` and `DemoApiClient`.
+- `src/auth/session.ts` — `oidc-client-ts` session (Authorization Code + PKCE, refresh), same as MVR.
+- Pure functions: `lib/access.ts` (rule labels), `lib/links.ts` (columns, reordering), `lib/icons.ts`,
+  `lib/date.ts`, `lib/weather.ts`.
+- One dark theme; all colours are CSS variables in `src/index.css` (`--accent` re-colours the portal).

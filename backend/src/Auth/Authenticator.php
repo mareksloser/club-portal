@@ -10,7 +10,7 @@ use Portal\Http\Request;
 
 /**
  * Resolves the bearer token (an access token from the club IdP) to a Member.
- * Every club account may use the portal; there is no "no access" case here.
+ * Editors are members with the portal role `admin` (EDITOR_ROLE) or the global `superadmin`.
  */
 final class Authenticator
 {
@@ -20,15 +20,40 @@ final class Authenticator
     public function __construct(
         private readonly TokenVerifier $verifier,
         private readonly ClaimsMapper $mapper,
+        private readonly string $editorRole = 'admin',
     ) {
+    }
+
+    /** null = anonymous visitor (no token). An invalid token is a 401, so the SPA ends the session. */
+    public function member(Request $request): ?Member
+    {
+        $token = $request->bearerToken();
+        if ($token === null) {
+            return null;
+        }
+        $member = $this->resolved[$token] ??= $this->resolve($token);
+
+        return $member ?? throw HttpException::unauthorized('Přihlášení vypršelo, přihlaste se prosím znovu.');
     }
 
     public function requireMember(Request $request): Member
     {
-        $token = $request->bearerToken();
-        $member = $token === null ? null : ($this->resolved[$token] ??= $this->resolve($token));
+        return $this->member($request) ?? throw HttpException::unauthorized('Přihlaste se.');
+    }
 
-        return $member ?? throw HttpException::unauthorized('Přihlášení vypršelo, přihlaste se prosím znovu.');
+    public function requireEditor(Request $request): Member
+    {
+        $member = $this->requireMember($request);
+        if (!$this->isEditor($member)) {
+            throw HttpException::forbidden('Rozcestník mohou upravovat jen jeho správci.');
+        }
+
+        return $member;
+    }
+
+    public function isEditor(?Member $member): bool
+    {
+        return $member !== null && ($member->isSuperadmin() || $member->hasRole($this->editorRole));
     }
 
     private function resolve(string $token): ?Member

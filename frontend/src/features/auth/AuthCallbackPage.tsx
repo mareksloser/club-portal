@@ -3,7 +3,7 @@ import { useNavigate, useRouter } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApi } from '@/app/ApiContext';
 import { keys } from '@/app/queries';
-import { Button, ErrorNote, Panel, Spinner } from '@/components/ui';
+import { Button, ErrorNote, Spinner } from '@/components/ui';
 import { safeRedirect } from '@/lib/redirect';
 
 /** Landing page after the club login: exchanges the code for tokens. */
@@ -23,29 +23,29 @@ export function AuthCallbackPage() {
       ({ returnTo }) => {
         void qc.invalidateQueries({ queryKey: keys.dashboard });
         const target = safeRedirect(returnTo);
-        if (target) router.history.replace(target);
+        if (target && target !== '/') router.history.replace(target);
         else void navigate({ to: '/', replace: true });
       },
       (e: unknown) => setError(e),
     );
   }, [api, qc, router, navigate]);
 
-  if (!error) {
-    return (
-      <div className="mt-16 flex flex-col items-center gap-3 text-muted">
-        <Spinner />
-        Dokončuji přihlášení…
-      </div>
-    );
-  }
-
   return (
-    <Panel className="mx-auto grid max-w-md gap-4 p-5">
-      <h1 className="font-display text-2xl font-semibold">Přihlášení se nepovedlo</h1>
-      <ErrorNote error={error} />
-      <Button variant="primary" onClick={() => void api.signIn({})}>
-        Zkusit znovu
-      </Button>
-    </Panel>
+    <main className="mx-auto flex max-w-sm flex-col items-center gap-4 px-5 pt-24 text-center text-muted">
+      {error ? (
+        <>
+          <h1 className="text-2xl font-bold text-ink">Přihlášení se nepovedlo</h1>
+          <ErrorNote error={error} />
+          <Button variant="primary" onClick={() => void api.signIn({})}>
+            Zkusit znovu
+          </Button>
+        </>
+      ) : (
+        <>
+          <Spinner />
+          Dokončuji přihlášení…
+        </>
+      )}
+    </main>
   );
 }

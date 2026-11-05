@@ -26,8 +26,7 @@ export interface AuthSession {
   onEnded(listener: () => void): () => void;
 }
 
-/** `apps` lets the portal read the app catalogue from the IdP (GET /api/apps). */
-export const OIDC_SCOPES = 'openid profile email roles teams apps offline_access';
+export const OIDC_SCOPES = 'openid profile email roles teams offline_access';
 
 type SignInState = { returnTo?: string };
 

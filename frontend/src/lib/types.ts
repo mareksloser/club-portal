@@ -1,6 +1,15 @@
-/** Shapes of the portal API (backend/src/Service/DashboardService.php). */
+/** Shapes of the portal API (see backend/README). */
 
+export type AccessType = 'public' | 'members' | 'team' | 'role' | 'editors';
 export type Membership = 'player' | 'coach' | 'parent' | 'staff';
+export type Layout = 'tiles' | 'columns';
+
+/** Who may see a link. `value` = membership for `team`, role slug for `role`. */
+export interface AccessRule {
+  type: AccessType;
+  team: string | null;
+  value: string | null;
+}
 
 export interface Team {
   slug: string;
@@ -13,35 +22,58 @@ export interface Member {
   name: string;
   email: string | null;
   teams: Team[];
-  superadmin: boolean;
 }
 
-export interface RoleGrant {
-  role: string;
-  team: string | null;
-  teamName: string | null;
-}
-
-/** Why the member sees the app: their own role, the app is public, or only as superadmin. */
-export type AppAccess = 'role' | 'public' | 'superadmin';
-
-export interface PortalApp {
-  clientId: string;
-  name: string;
-  description: string | null;
+export interface Link {
+  id: number;
+  sectionId: number;
+  column: string | null;
+  title: string;
+  subtitle: string | null;
   url: string;
-  logoUrl: string | null;
-  accentColor: string | null;
-  roles: RoleGrant[];
-  access: AppAccess;
+  /** "lucide:<name>" | "url:https://…" | null */
+  icon: string | null;
+  newTab: boolean;
+  /** Editors only */
+  access?: AccessRule;
+  /** Editors only: whether they'd see it without the editor role */
+  visibleToMe?: boolean;
+}
+
+export interface Section {
+  id: number;
+  title: string;
+  layout: Layout;
+  links: Link[];
 }
 
 export interface Dashboard {
-  member: Member;
-  apps: PortalApp[];
-  links: { account: string; admin: string | null };
+  member: Member | null;
+  editor: boolean;
+  sections: Section[];
 }
 
 export interface PublicConfig {
   clubName: string;
+  /** Club IdP; its root is the member's account page */
+  issuer?: string;
+  weather: { lat: number; lon: number } | null;
 }
+
+export interface Directory {
+  teams: { slug: string; name: string }[];
+  roles: { slug: string; description: string | null }[];
+}
+
+export type SectionInput = { title: string; layout: Layout };
+
+export type LinkInput = {
+  sectionId: number;
+  column: string | null;
+  title: string;
+  subtitle: string | null;
+  url: string;
+  icon: string | null;
+  newTab: boolean;
+  access: AccessRule;
+};

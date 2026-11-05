@@ -4,11 +4,7 @@ declare(strict_types=1);
 
 namespace Portal\Auth;
 
-/**
- * Access-token claims from the club IdP → Member. Pure, no I/O.
- * The portal has no roles of its own: it only needs who the user is, their teams
- * and global roles. What they may open comes from the IdP's catalogue (GET /api/apps).
- */
+/** Access-token claims from the club IdP → Member. Pure, no I/O. */
 final class ClaimsMapper
 {
     /** @param array<string, mixed> $claims verified claims (sub is guaranteed) */
@@ -29,16 +25,19 @@ final class ClaimsMapper
             ];
         }
 
-        $globalRoles = is_array($claims['global_roles'] ?? null)
-            ? array_values(array_filter($claims['global_roles'], 'is_string'))
-            : [];
-
         return new Member(
             (string) $claims['sub'],
             mb_substr($name !== '' ? $name : $email, 0, 120),
             $email !== '' ? $email : null,
             $teams,
-            $globalRoles,
+            self::strings($claims['roles'] ?? []),
+            self::strings($claims['global_roles'] ?? []),
         );
+    }
+
+    /** @return list<string> */
+    private static function strings(mixed $value): array
+    {
+        return is_array($value) ? array_values(array_filter($value, 'is_string')) : [];
     }
 }

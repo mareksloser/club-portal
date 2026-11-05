@@ -14,14 +14,11 @@ const queryClient = new QueryClient({
 
 const api = createApiClient();
 
-// Signed out elsewhere (another device, an admin) or the session expired: drop what the
-// signed-in user saw and send them to the login, instead of a half signed-in page.
+// Signed out elsewhere (another device, an admin) or the session expired:
+// the page falls back to what anonymous visitors see.
 api.onSessionEnded(() => {
-  queryClient.setQueryData(keys.dashboard, null);
-  const { pathname, href } = router.state.location;
-  if (pathname !== '/login' && pathname !== '/auth/callback') {
-    void router.navigate({ to: '/login', search: { redirect: href }, replace: true });
-  }
+  queryClient.removeQueries({ queryKey: keys.directory });
+  void queryClient.invalidateQueries({ queryKey: keys.dashboard });
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

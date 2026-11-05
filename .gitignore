@@ -1,0 +1,13 @@
+node_modules/
+.idea
+
+frontend/dist/
+frontend/dist-demo/
+frontend/.env
+
+backend/.env
+backend/vendor/
+backend/public/assets/
+backend/public/index.html
+backend/public/favicon.svg
+backend/tmp/

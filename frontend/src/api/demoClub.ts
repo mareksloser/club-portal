@@ -174,6 +174,16 @@ export function createDemoClub(): ClubApi {
     },
     async addMember(teamId, input) {
       let personId = input.personId;
+      if (!personId && input.account) {
+        const { sub, name, email } = input.account;
+        personId = people.find((x) => x.authSub === sub)?.id;
+        if (!personId) {
+          const parts = name.trim().split(/\s+/);
+          const lastName = parts.pop() ?? name;
+          personId = next++;
+          people.push(p(personId, parts.join(' ') || lastName, lastName, null, { email, authSub: sub, authName: `${name} <${email}>` }));
+        }
+      }
       if (!personId) {
         checkPerson(input.person!, 'person.');
         personId = next++;
@@ -280,6 +290,7 @@ export function createDemoClub(): ClubApi {
         { sub: 'u-svob', name: 'Petra Svobodová', email: 'petra@example.cz', active: true },
         { sub: 'u-cerny', name: 'Tomáš Černý', email: 'tomas.cerny@example.cz', active: true },
         { sub: 'u-proch', name: 'Lukáš Procházka', email: 'lukas@example.cz', active: false },
+        { sub: 'u-sloser', name: 'Marek Šloser', email: 'marek@example.cz', active: true },
       ];
       const q = query.trim().toLocaleLowerCase('cs');
       return { users: q.length < 2 ? [] : all.filter((u) => `${u.name} ${u.email}`.toLocaleLowerCase('cs').includes(q)) };

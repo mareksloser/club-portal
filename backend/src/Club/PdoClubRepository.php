@@ -162,10 +162,16 @@ final class PdoClubRepository implements ClubRepository
     {
         $sql = 'SELECT ' . self::PERSON . ' FROM people p';
         $params = [];
-        if ($query !== null && trim($query) !== '') {
-            $like = '%' . addcslashes(trim($query), '%_\\') . '%';
-            $sql .= " WHERE CONCAT(p.first_name, ' ', p.last_name) LIKE ? OR CONCAT(p.last_name, ' ', p.first_name) LIKE ? OR p.facr_id LIKE ? OR p.auth_name LIKE ?";
-            $params = [$like, $like, $like, $like];
+        // Every word must match somewhere: "Šlo Mar" finds Marek Šloser.
+        $words = preg_split('/\s+/u', trim((string) $query), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $conditions = [];
+        foreach (array_slice($words, 0, 5) as $word) {
+            $like = '%' . addcslashes($word, '%_\\') . '%';
+            $conditions[] = '(p.first_name LIKE ? OR p.last_name LIKE ? OR p.facr_id LIKE ? OR p.auth_name LIKE ?)';
+            array_push($params, $like, $like, $like, $like);
+        }
+        if ($conditions) {
+            $sql .= ' WHERE ' . implode(' AND ', $conditions);
         }
         $sql .= ' ORDER BY p.last_name, p.first_name LIMIT ' . max(1, min($limit, 500));
 

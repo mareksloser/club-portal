@@ -149,9 +149,11 @@ final class ClubService
     // --- members -------------------------------------------------------------
 
     /**
-     * Adds an existing person (personId) or a new one (person: {...}) to the team.
+     * Adds someone to the team: an existing person (personId), a new one (person: {...}),
+     * or a club account (account: {sub, name, email}) — the person linked to that account,
+     * created and linked on first use.
      *
-     * @param array<string, mixed> $input {kind, personId | person, staffRole?, jerseyNumber?}
+     * @param array<string, mixed> $input {kind, personId | person | account, staffRole?, jerseyNumber?}
      */
     public function addMember(int $teamId, array $input): array
     {
@@ -161,7 +163,17 @@ final class ClubService
         [$staffRole, $jersey] = self::memberInput($in, $kind);
         $personId = $in->int('personId', 1, PHP_INT_MAX, label: 'Osoba');
         $newPerson = null;
-        if ($personId === null) {
+        $account = null;
+        if ($personId === null && is_array($input['account'] ?? null)) {
+            $account = $this->accountInput($input['account'], $in);
+            $personId = $account !== null ? ($this->repo->personByAuthSub($account['sub'])['id'] ?? null) : null;
+            if ($personId === null && $account !== null) {
+                $newPerson = self::personFromAccount($account['name'], $account['email']);
+            }
+            if ($personId !== null && $kind !== null && $this->repo->memberExists($teamId, $personId, $kind)) {
+                $in->error('personId', $kind === 'player' ? 'Už je v soupisce hráčů.' : 'Už je v realizačním týmu.');
+            }
+        } elseif ($personId === null) {
             if (!is_array($input['person'] ?? null)) {
                 $in->error('personId', 'Vyber osobu, nebo vyplň novou.');
             } else {
@@ -174,7 +186,12 @@ final class ClubService
         }
         $in->throwIfInvalid();
 
-        $personId ??= $this->repo->createPerson((array) $newPerson);
+        if ($personId === null) {
+            $personId = $this->repo->createPerson((array) $newPerson);
+            if ($account !== null) {
+                $this->repo->linkAccount($personId, $account['sub'], $account['label']);
+            }
+        }
         $this->repo->addMember($teamId, $personId, (string) $kind, $staffRole, $jersey);
 
         return $this->team($teamId);
@@ -263,8 +280,7 @@ final class ClubService
             $in->error('sub', sprintf('Účet už je propojený s osobou %s %s.', $other['firstName'], $other['lastName']));
         }
         $in->throwIfInvalid();
-        $label = trim($name . ($email !== null ? " <$email>" : ''));
-        $this->repo->linkAccount($id, $sub, mb_substr($label !== '' ? $label : $sub, 0, 150));
+        $this->repo->linkAccount($id, $sub, self::accountLabel($sub, $name, $email));
 
         return $this->person($id);
     }
@@ -314,6 +330,53 @@ final class ClubService
     }
 
     // --- input ---------------------------------------------------------------
+
+    /** @param mixed $data @return array{sub: string, name: string, email: ?string, label: string}|null */
+    private function accountInput(mixed $data, Input $in): ?array
+    {
+        $account = new Input(is_array($data) ? $data : []);
+        $sub = $account->text('sub', 64);
+        $name = $account->text('name', 120);
+        if ($sub === null || $name === null) {
+            $in->error('personId', 'Vyber klubový účet ze seznamu.');
+
+            return null;
+        }
+        $email = $account->text('email', 150);
+
+        return ['sub' => $sub, 'name' => $name, 'email' => $email, 'label' => self::accountLabel($sub, $name, $email)];
+    }
+
+    /** "Jan Novák <jan@x.cz>" Pure. */
+    public static function accountLabel(string $sub, string $name, ?string $email): string
+    {
+        $label = trim($name . ($email !== null && $email !== '' ? " <$email>" : ''));
+
+        return mb_substr($label !== '' ? $label : $sub, 0, 150);
+    }
+
+    /**
+     * A registry person from an account's display name: "Jan Novák" → Jan / Novák,
+     * "Anna Marie Nová" → Anna Marie / Nová, a single word becomes the surname. Pure.
+     *
+     * @return array<string, ?string>
+     */
+    public static function personFromAccount(string $name, ?string $email): array
+    {
+        $parts = preg_split('/\s+/u', trim($name)) ?: [];
+        $last = (string) array_pop($parts);
+        $first = implode(' ', $parts);
+
+        return [
+            'firstName' => mb_substr($first !== '' ? $first : $last, 0, 60),
+            'lastName' => mb_substr($last, 0, 60),
+            'birthDate' => null,
+            'facrId' => null,
+            'email' => $email !== null && filter_var($email, FILTER_VALIDATE_EMAIL) ? mb_substr($email, 0, 150) : null,
+            'phone' => null,
+            'note' => null,
+        ];
+    }
 
     /** @param array<string, mixed> $input @return array{name: string, startsOn: string, endsOn: string} */
     private function seasonInput(array $input, ?int $id): array

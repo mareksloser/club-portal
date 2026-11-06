@@ -105,7 +105,15 @@ export interface Account {
 export type SeasonInput = { name: string; startsOn: string; endsOn: string; copyFrom?: number | null };
 export type TeamInput = { seasonId?: number; name: string; category: string | null; authTeam: string | null };
 export type PersonInput = Pick<Person, 'firstName' | 'lastName' | 'birthDate' | 'facrId' | 'email' | 'phone' | 'note'>;
-export type MemberInput = { kind: MemberKind; personId?: number; person?: PersonInput; staffRole?: string | null; jerseyNumber?: number | null };
+export type MemberInput = {
+  kind: MemberKind;
+  personId?: number;
+  person?: PersonInput;
+  /** A club account: the person linked to it, created and linked on first use. */
+  account?: Pick<Account, 'sub' | 'name' | 'email'>;
+  staffRole?: string | null;
+  jerseyNumber?: number | null;
+};
 export type LicenceInput = Pick<Licence, 'type' | 'number' | 'issuedOn' | 'validUntil' | 'note'>;
 
 /** Suggestions only; any text is accepted. */
@@ -154,6 +162,9 @@ export function licenceDetail(state: LicenceState, daysLeft: number | null, vali
   if (state === 'expiring') return `vyprší za ${days(daysLeft)}`;
   return `platí do ${czDate(validUntil)}`;
 }
+
+/** Debounce a fast-changing value (search boxes), so the API isn't asked on every keystroke. */
+export const SEARCH_DELAY_MS = 300;
 
 /** Birth year (ročník), the way youth football talks about age. */
 export const birthYear = (iso: string | null) => (iso ? iso.slice(0, 4) : '');

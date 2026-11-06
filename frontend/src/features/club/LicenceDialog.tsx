@@ -36,16 +36,16 @@ export function LicenceDialog({ target, onClose }: { target: LicenceTarget | nul
     <Dialog open={target !== null} onOpenChange={(o) => !o && onClose()} title={existing ? 'Upravit licenci' : 'Nová licence'}>
       <form onSubmit={submit} className="grid gap-4">
         <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
-          <Field label="Typ" error={errors.type} hint="Vyber, nebo napiš vlastní.">
-            <>
+          <>
+            <Field label="Typ" error={errors.type} hint="Vyber, nebo napiš vlastní.">
               <Input list="licence-types" value={form.type} maxLength={60} required autoFocus onChange={(e) => set({ type: e.target.value })} placeholder="UEFA B" />
-              <datalist id="licence-types">
-                {LICENCE_TYPES.map((t) => (
-                  <option key={t} value={t} />
-                ))}
-              </datalist>
-            </>
-          </Field>
+            </Field>
+            <datalist id="licence-types">
+              {LICENCE_TYPES.map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
+          </>
           <Field label="Číslo" error={errors.number}>
             <Input value={form.number ?? ''} maxLength={40} onChange={(e) => set({ number: text(e.target.value) })} />
           </Field>

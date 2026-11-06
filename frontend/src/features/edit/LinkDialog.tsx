@@ -93,16 +93,16 @@ export function LinkDialog({
             </Select>
           </Field>
           {section?.layout === 'columns' && (
-            <Field label="Sloupec" hint="Existující, nebo napiš nový.">
-              <>
+            <>
+              <Field label="Sloupec" hint="Existující, nebo napiš nový.">
                 <Input list="link-columns" value={input.column ?? ''} maxLength={40} onChange={(e) => set({ column: e.target.value })} placeholder="Trenéři" />
-                <datalist id="link-columns">
-                  {columns.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-              </>
-            </Field>
+              </Field>
+              <datalist id="link-columns">
+                {columns.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </>
           )}
         </div>
 

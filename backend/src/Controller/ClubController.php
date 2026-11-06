@@ -71,7 +71,7 @@ final class ClubController
             return Response::json(['users' => []]);
         }
         try {
-            $users = $this->directory->searchUsers((string) $r->bearerToken(), $q);
+            $users = self::matchAllWords($this->directory->searchUsers((string) $r->bearerToken(), self::longestWord($q)), $q);
         } catch (\RuntimeException $e) {
             error_log('[portal] account search failed: ' . $e->getMessage());
             throw new HttpException($e->getCode() === 403
@@ -80,5 +80,36 @@ final class ClubController
         }
 
         return Response::json(['users' => $users])->withHeaders(['Cache-Control' => 'private, no-store']);
+    }
+
+    /** The IdP matches the whole query as one string, so it gets the most selective word only. Pure. */
+    public static function longestWord(string $q): string
+    {
+        $words = preg_split('/\s+/u', trim($q), -1, PREG_SPLIT_NO_EMPTY) ?: [''];
+        usort($words, static fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
+
+        return $words[0];
+    }
+
+    /**
+     * Keeps accounts whose name or e-mail contains every word of $q ("Šloser Marek" finds Marek Šloser). Pure.
+     *
+     * @param list<array{sub: string, name: string, email: string, active: bool}> $users
+     * @return list<array{sub: string, name: string, email: string, active: bool}>
+     */
+    public static function matchAllWords(array $users, string $q): array
+    {
+        $words = preg_split('/\s+/u', mb_strtolower(trim($q)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_filter($users, static function (array $u) use ($words): bool {
+            $haystack = mb_strtolower($u['name'] . ' ' . $u['email']);
+            foreach ($words as $word) {
+                if (!str_contains($haystack, $word)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
     }
 }

@@ -1,10 +1,12 @@
 import type { ApiClient } from './client';
 import { ApiError } from './client';
+import { createDemoClub } from './demoClub';
 import type { AccessType, Dashboard, Directory, Link, LinkInput, PublicConfig, Section, SectionInput } from '@/lib/types';
 
 /** In-memory API for `pnpm dev:demo`: no backend, no IdP. You are an editor of a sample portal. */
 export class DemoApiClient implements ApiClient {
   private signedIn = true;
+  club = createDemoClub();
   private nextId = 100;
   private sections: Omit<Section, 'links'>[] = [
     { id: 1, title: 'Aplikace', layout: 'tiles' },

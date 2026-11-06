@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Check, Pencil, Plus, RotateCw } from 'lucide-react';
+import { Check, Pencil, Plus, RotateCw, Users } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 import { useConfig, useDashboard, useDirectory, useEdit } from '@/app/queries';
 import { Button, ErrorNote, Spinner } from '@/components/ui';
 import { isDemo } from '@/api';
@@ -32,6 +33,14 @@ export function HomePage() {
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <p className="text-sm font-semibold uppercase tracking-wide">{longDate(now)}</p>
         <div className="ml-auto flex items-center gap-1">
+          {isEditor && !editMode && (
+            <Link
+              to="/klub"
+              className="inline-flex h-8 items-center gap-2 rounded-md px-3 text-sm font-semibold text-muted hover:bg-raised hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <Users className="h-4 w-4" /> Evidence klubu
+            </Link>
+          )}
           {isEditor && (
             <Button variant={editMode ? 'primary' : 'ghost'} size="sm" onClick={() => setEditing(!editMode)} aria-pressed={editMode}>
               {editMode ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}

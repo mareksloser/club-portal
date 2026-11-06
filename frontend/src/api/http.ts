@@ -1,4 +1,4 @@
-import type { ApiClient } from './client';
+import type { ApiClient, ClubApi } from './client';
 import { ApiError } from './client';
 import type { AuthSession } from '@/auth/session';
 import type { Dashboard, PublicConfig } from '@/lib/types';
@@ -77,6 +77,32 @@ export class HttpApiClient implements ApiClient {
   updateLink: ApiClient['updateLink'] = (id, input) => this.request('PUT', `/links/${id}`, input);
   deleteLink: ApiClient['deleteLink'] = (id) => this.request('DELETE', `/links/${id}`);
   reorderLinks: ApiClient['reorderLinks'] = (sectionId, ids) => this.request('PUT', `/sections/${sectionId}/links/order`, { ids });
+
+  club: ClubApi = {
+    seasons: () => this.request('GET', '/club/seasons'),
+    season: (id) => this.request('GET', `/club/seasons/${id}`),
+    createSeason: (input) => this.request('POST', '/club/seasons', input),
+    updateSeason: (id, input) => this.request('PUT', `/club/seasons/${id}`, input),
+    deleteSeason: (id) => this.request('DELETE', `/club/seasons/${id}`),
+    team: (id) => this.request('GET', `/club/teams/${id}`),
+    createTeam: (input) => this.request('POST', '/club/teams', input),
+    updateTeam: (id, input) => this.request('PUT', `/club/teams/${id}`, input),
+    deleteTeam: (id) => this.request('DELETE', `/club/teams/${id}`),
+    addMember: (teamId, input) => this.request('POST', `/club/teams/${teamId}/members`, input),
+    updateMember: (id, input) => this.request('PUT', `/club/members/${id}`, input),
+    removeMember: (id) => this.request('DELETE', `/club/members/${id}`),
+    people: (query) => this.request('GET', `/club/people?${new URLSearchParams({ q: query })}`),
+    person: (id) => this.request('GET', `/club/people/${id}`),
+    createPerson: (input) => this.request('POST', '/club/people', input),
+    updatePerson: (id, input) => this.request('PUT', `/club/people/${id}`, input),
+    deletePerson: (id) => this.request('DELETE', `/club/people/${id}`),
+    linkAccount: (id, account) => this.request('PUT', `/club/people/${id}/account`, account ?? { sub: null }),
+    addLicence: (personId, input) => this.request('POST', `/club/people/${personId}/licences`, input),
+    updateLicence: (id, input) => this.request('PUT', `/club/licences/${id}`, input),
+    deleteLicence: (id) => this.request('DELETE', `/club/licences/${id}`),
+    coaches: (seasonId) => this.request('GET', `/club/coaches${seasonId ? `?season=${seasonId}` : ''}`),
+    accounts: (query) => this.request('GET', `/club/accounts?${new URLSearchParams({ q: query })}`),
+  };
 }
 
 /**

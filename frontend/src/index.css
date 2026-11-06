@@ -17,6 +17,8 @@
   --accent: 255 92 112;    /* club red #d3012a, lightened: 5.6:1 on --bg */
   --accent-ink: 10 25 49;
   --danger: 255 120 120;
+  --warn: 251 191 36;      /* licence ending soon */
+  --ok: 74 222 128;        /* valid licence */
   color-scheme: dark;
 }
 

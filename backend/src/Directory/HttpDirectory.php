@@ -28,6 +28,29 @@ final class HttpDirectory implements Directory
         return self::parse($data);
     }
 
+    public function searchUsers(string $accessToken, string $query): array
+    {
+        $url = $this->url . '/users?' . http_build_query(['q' => $query]);
+        [$status, $body] = ($this->fetch)($url, $accessToken) ?? [0, ''];
+        $data = $status === 200 ? json_decode($body, true) : null;
+        if (!is_array($data) || !is_array($data['users'] ?? null)) {
+            throw new \RuntimeException("$url answered HTTP $status", $status);
+        }
+        $users = [];
+        foreach ($data['users'] as $u) {
+            if (is_array($u) && is_string($u['sub'] ?? null)) {
+                $users[] = [
+                    'sub' => $u['sub'],
+                    'name' => is_string($u['name'] ?? null) ? $u['name'] : '',
+                    'email' => is_string($u['email'] ?? null) ? $u['email'] : '',
+                    'active' => (bool) ($u['active'] ?? true),
+                ];
+            }
+        }
+
+        return $users;
+    }
+
     /**
      * Pure, defensive.
      *

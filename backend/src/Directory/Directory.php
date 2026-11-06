@@ -13,4 +13,12 @@ interface Directory
      * @throws \RuntimeException when the IdP can't be asked
      */
     public function load(string $accessToken): array;
+
+    /**
+     * Club accounts matching $query (name or e-mail), for linking players and staff.
+     *
+     * @return list<array{sub: string, name: string, email: string, active: bool}>
+     * @throws \RuntimeException when the IdP can't be asked or refuses (403: caller isn't the app's admin)
+     */
+    public function searchUsers(string $accessToken, string $query): array;
 }

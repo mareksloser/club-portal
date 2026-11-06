@@ -3,6 +3,11 @@ import { NotFoundPage } from './NotFoundPage';
 import { HomePage } from '@/features/home/HomePage';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { AuthCallbackPage } from '@/features/auth/AuthCallbackPage';
+import { SeasonsPage } from '@/features/club/SeasonsPage';
+import { TeamPage } from '@/features/club/TeamPage';
+import { PeoplePage } from '@/features/club/PeoplePage';
+import { PersonPage } from '@/features/club/PersonPage';
+import { CoachesPage } from '@/features/club/CoachesPage';
 import { isDemo } from '@/api';
 import { safeRedirect } from '@/lib/redirect';
 
@@ -14,10 +19,21 @@ const loginSearch = (s: Record<string, unknown>): { redirect?: string } => {
   return redirect ? { redirect } : {};
 };
 
+/** ?sezona=12 */
+const seasonSearch = (s: Record<string, unknown>): { sezona?: number } => {
+  const id = Number(s.sezona);
+  return Number.isInteger(id) && id > 0 ? { sezona: id } : {};
+};
+
 const routes = [
   createRoute({ getParentRoute: () => root, path: '/', component: HomePage }),
   createRoute({ getParentRoute: () => root, path: '/login', component: LoginPage, validateSearch: loginSearch }),
   createRoute({ getParentRoute: () => root, path: '/auth/callback', component: AuthCallbackPage }),
+  createRoute({ getParentRoute: () => root, path: '/klub', component: SeasonsPage, validateSearch: seasonSearch }),
+  createRoute({ getParentRoute: () => root, path: '/klub/tym/$teamId', component: TeamPage }),
+  createRoute({ getParentRoute: () => root, path: '/klub/lide', component: PeoplePage }),
+  createRoute({ getParentRoute: () => root, path: '/klub/lide/$personId', component: PersonPage }),
+  createRoute({ getParentRoute: () => root, path: '/klub/treneri', component: CoachesPage, validateSearch: seasonSearch }),
 ];
 
 export const router = createRouter({

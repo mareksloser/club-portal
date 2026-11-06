@@ -14,6 +14,8 @@ export default {
         accent: v('accent'),
         'accent-ink': v('accent-ink'),
         danger: v('danger'),
+        warn: v('warn'),
+        ok: v('ok'),
       },
       fontFamily: {
         sans: ['"Barlow"', 'system-ui', 'sans-serif'],

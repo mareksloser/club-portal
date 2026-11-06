@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Portal\Auth\Authenticator;
 use Portal\Auth\ClaimsMapper;
 use Portal\Auth\Oidc;
+use Portal\Club;
 use Portal\Config\Env;
 use Portal\Controller;
 use Portal\Directory\Directory;
@@ -67,6 +68,14 @@ return static function (Container $c): void {
         $c->get(Repository\LinkRepository::class),
     ));
 
+    // Club registry
+    $c->set(Club\ClubRepository::class, fn (Container $c) => new Club\PdoClubRepository($c->get(\PDO::class)));
+    $c->set(Club\ClubService::class, fn (Container $c) => new Club\ClubService(
+        $c->get(Club\ClubRepository::class),
+        $c->get(Clock::class),
+        (int) Env::get('LICENCE_WARNING_DAYS', '90'),
+    ));
+
     // Controllers
     $c->set(Controller\AuthController::class, fn () => new Controller\AuthController(
         $issuer(),
@@ -83,6 +92,12 @@ return static function (Container $c): void {
     $c->set(Controller\EditorController::class, fn (Container $c) => new Controller\EditorController(
         $c->get(Authenticator::class),
         $c->get(EditorService::class),
+        $c->get(Directory::class),
+    ));
+
+    $c->set(Controller\ClubController::class, fn (Container $c) => new Controller\ClubController(
+        $c->get(Authenticator::class),
+        $c->get(Club\ClubService::class),
         $c->get(Directory::class),
     ));
 

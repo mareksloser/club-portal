@@ -1,4 +1,5 @@
 node_modules/
+.idea
 
 frontend/dist/
 frontend/dist-demo/
